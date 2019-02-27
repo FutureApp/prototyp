@@ -19,3 +19,19 @@ RUN \
     chmod +x ./hadoop/bin/hadoop && \
     rm -rf hadoop*.*
 
+# Second install goes to top TODO
+RUN \
+  apt-get install -y openssh-server
+
+RUN \
+    ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa          && \
+    cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys   && \
+    chmod 0600 ~/.ssh/authorized_keys                 
+
+ADD conf/hadoop /usr/local/hadoop/etc/hadoop
+ADD script/hadoop/start-up.sh /usr/local/start-up.sh
+
+WORKDIR ${HADOOP_HOME}
+
+ENTRYPOINT  exec /bin/bash -c "service ssh start;"
+CMD exec /bin/bash -c "trap : TERM INT; sleep infinity & wait""
