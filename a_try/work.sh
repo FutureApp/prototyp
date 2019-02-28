@@ -25,7 +25,7 @@ case  $var  in
     echo -e "$bench_tag Deploying the infrastructure of the experiment.     | $RR cus_build $NC"
     
     eval $(minikube docker-env)
-    docker build -t x .
+    docker build -t xhadoop .
 ;;
 (deploy) #      -- Procedure to deploy your benchmark on kubernetes.     via custom script.
     echo -e "$bench_tag Deploying the infrastructure of the experiment.     | $RR cus_deploy $NC"

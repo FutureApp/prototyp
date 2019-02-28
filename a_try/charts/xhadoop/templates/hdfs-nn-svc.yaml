@@ -15,6 +15,9 @@ spec:
     protocol: TCP
   - name: webhdfs
     port: 50070
+  - name: hivetwo
+    port: 10000
+
   clusterIP: None
   selector:
     app: {{ include "hadoop.name" . }}
