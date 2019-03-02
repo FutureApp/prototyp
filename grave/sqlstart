@@ -1,0 +1,6 @@
+hadoop fs -mkdir -p /tmp  && \
+hadoop fs -mkdir -p /user/hive/warehouse && \
+hadoop fs -chmod g+w /tmp && \
+hadoop fs -chmod g+w /user/hive/warehouse
+
+nohup /usr/local/derby/bin/startNetworkServer -h 0.0.0.0 &

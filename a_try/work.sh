@@ -51,11 +51,7 @@ case  $var  in
                                                     hadoop fs -chmod g+w /tmp && \
                                                     hadoop fs -chmod g+w /user/hive/warehouse
                                                     "
-    kubectl exec -it xhadoop-hadoop-hdfs-nn-0  -- bash -c "cd /usr/local && msql"
-
     kubectl exec -it xhadoop-hadoop-hdfs-nn-0  -- bash -c "cd .. && mkdir loop && cd loop && \
-    /etc/init.d/mysql start && \
-    sleep 5 && mysql < /usr/local/sql.sql && sleep 5 && \
     schematool -dbType mysql -initSchema -verbose && \
     bash
     "
