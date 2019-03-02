@@ -33,10 +33,32 @@ case  $var  in
     nameOfHadoopCluster='xhadoop'
     helm delete     --purge $nameOfHadoopCluster
     helm install    --name  $nameOfHadoopCluster xhadoop
+
+
+
+    helm delete --purge sql-mysql
+    helm install --name sql-mysql \
+    --set mysqlRootPassword=a,mysqlUser=hive,mysqlPassword=password,mysqlDatabase=metastore_db \
+    stable/mysql
+
     echo -e  "${bench_tag} hadoop cluster started and named as < $nameOfHadoopCluster > ..."
 ;;
+(d) #         -- connects to a node
+    kubectl exec -it xhadoop-hadoop-hdfs-nn-0  -- bash -c " bash ";;
 (deb) #         -- connects to a node
-    kubectl exec -it xhadoop-hadoop-hdfs-nn-0 bash
+    kubectl exec -it xhadoop-hadoop-hdfs-nn-0  -- bash -c " hadoop fs -mkdir -p /tmp && \
+                                                    hadoop fs -mkdir -p /user/hive/warehouse && \
+                                                    hadoop fs -chmod g+w /tmp && \
+                                                    hadoop fs -chmod g+w /user/hive/warehouse
+                                                    "
+    kubectl exec -it xhadoop-hadoop-hdfs-nn-0  -- bash -c "cd /usr/local && msql"
+
+    kubectl exec -it xhadoop-hadoop-hdfs-nn-0  -- bash -c "cd .. && mkdir loop && cd loop && \
+    /etc/init.d/mysql start && \
+    sleep 5 && mysql < /usr/local/sql.sql && sleep 5 && \
+    schematool -dbType mysql -initSchema -verbose && \
+    bash
+    "
 ;;
 (test-had) #    -- executes a simple check
     kubectl exec xhadoop-hadoop-hdfs-nn-0 -- hdfs dfsadmin -report

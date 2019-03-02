@@ -5,7 +5,6 @@ RUN \
     apt-get install net-tools
 
 
-
 ENV HIVE_VERSION=3.1.1 
 ENV HIVE_HOME="/usr/local/hive"
 RUN \
@@ -35,5 +34,14 @@ RUN \
     cd derby && PATH=$DERBY_HOME/bin:$PATH && cd .. && \
     rm -rf db-derby*.*
 
+RUN \
+  export DEBIAN_FRONTEND=noninteractive;apt-get install -y mysql-server libmysql-java
+
+RUN \
+  ln -s /usr/share/java/mysql-connector-java.jar /usr/local/hive/lib/
+
+ADD conf/sql.sql        /usr/local/sql.sql
+ADD conf/hive-env.sh    /usr/local/hive/conf
+ADD conf/hive-site.xml  /usr/local/hive/conf
 #SO on
 EXPOSE 10000
