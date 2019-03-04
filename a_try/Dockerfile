@@ -2,8 +2,14 @@ FROM danisla/hadoop:2.9.0
 
 RUN \
     apt-get update && \
-    apt-get install net-tools
-
+    export DEBIAN_FRONTEND=noninteractive; \
+    apt-get install -y \
+    net-tools \
+    dnsutils \
+    telnet \
+    nano \
+    mysql-server \
+    libmysql-java
 
 ENV HIVE_VERSION=3.1.1 
 ENV HIVE_HOME="/usr/local/hive"

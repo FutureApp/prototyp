@@ -35,13 +35,17 @@ case  $var  in
     helm install    --name  $nameOfHadoopCluster xhadoop
 
 
-
     helm delete --purge sql-mysql
+    sleep 30s
     helm install --name sql-mysql \
-    --set mysqlRootPassword=a,mysqlUser=hive,mysqlPassword=password,mysqlDatabase=metastore_db \
-    stable/mysql
+    --set mysqlRootPassword=a,mysqlUser=hive,mysqlPassword=password,mysqlDatabase=metastore \
+    xmysql
 
     echo -e  "${bench_tag} hadoop cluster started and named as < $nameOfHadoopCluster > ..."
+;;
+(bd) #              -- Procedure to build your kube infrastructure (docker).  via custom script.
+    ./$0 build
+    ./$0 deploy
 ;;
 (d) #         -- connects to a node
     kubectl exec -it xhadoop-hadoop-hdfs-nn-0  -- bash -c " bash ";;
