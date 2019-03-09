@@ -1,131 +1,105 @@
 #!/usr/bin/python
 
-import sys, getopt
+import argparse
+import os
+import re
+
 import influxdb as idb
 import pandas as pd
-from os import path
 
-DEBUG = True
-
+args    =   None # will be filled by main-method
 # the default values, could be override during program-call
-input_host              = 'inlfux-server'
-input_port              = 8086
-input_searchingDB       = 'k8s'
-input_exportTyp         = 'xlsx'
-input_exportDir         = '/results'
-input_exportFilename    = 'exp_00'
-input_leftTimeBorder    = '000000000000'
-input_rightTimeBorder   = '000000000000'
 
-    
-def main(argv):
-    print("in")
-    handleInput(argv)
-    print(input_host)
-    print("out")
-    exit(0)
-    input_searchingForDB    = '_internal'
-    client                  = idb.InfluxDBClient(host='localhost',port=8086)
-    myDBExists              = existsDB(client,input_searchingForDB)
+def main(): 
+    args                    = initParser()
+    searchingForDB      = args.dbname
+    host                = args.host
+    port                = args.port
+    exportTyp           = args.exportTyp
+    exportDir           = args.exportDir
+    exportFilename      = args.exportFile
+    leftTimeBorder      = args.lTimeBorder
+    rightTimeBorder     = args.rTimeBorder
+
+    print("Collector was called with the following parameters:\n{}".format(args))
+    client              = idb.InfluxDBClient(host = host, port = port)
+    myDBExists          = isDBavailable(client, searchingForDB)
     
     if not myDBExists:
-        abortExecBecauseDBNotFound(input_searchingForDB)
+        abortExecBecauseDBNotFound(searchingForDB)
 
-    client.switch_database(database = input_searchingForDB)
+    if not os.path.exists(exportDir):
+        os.makedirs(exportDir)
     
-    listOfMeasurements = client.get_list_measurements()
-    exWriter = pd.ExcelWriter('./export_dataframe2.xlsx')
+    
+    client.switch_database(database = searchingForDB)
+    listOfMeasurements  = client.get_list_measurements()
+    exportPath          = '{}/{}.xlsx'.format(exportDir, exportFilename)
+    exWriter            = pd.ExcelWriter(exportPath)
+    
+    print("Found <{}> measurements in total. Gathering will start now.".format(len(listOfMeasurements)))
     for measurement in listOfMeasurements:
-        nameOfMea = measurement['name']
-        print(nameOfMea)
-        query = 'SELECT * FROM "{}"'.format(nameOfMea)
-        points = client.query(query, chunked=True, chunk_size=10000).get_points()
-        dfs = pd.DataFrame(points)
-        dfs.to_excel(exWriter,sheet_name=nameOfMea)
+        nameOfMeas          = measurement['name']
+        print("Start to collect from {}".format(nameOfMeas))
+
+        resDataFrame        = querySelAllFromMeasureResAsDataFrame(client, nameOfMeas)
+        cleanedNameOfMeas   = re.sub('[^A-Za-z0-9]+', '_', nameOfMeas)
+        resDataFrame.to_excel(exWriter,sheet_name=cleanedNameOfMeas)
+    
     exWriter.close()
-
-def handleInputs(argv):
-    print("Input handle")
-    try:
-        opts, args = getopt.getopt(argv,"h",["host="])
-    except getopt.GetoptError:
-        printHelpAndExit()
-    for opt, arg in opts:
-      if opt == '-h':
-          printHelpAndExit()
-      elif opt in ("--host"):
-         inputfile = arg
-        
-def printHelpAndExit():
-    print(  """Usage & Help
-    The purpose of the script is to call given InfluxDB-instance in order to download all performance data from a specific
-    database and export each measurements. HINT: Each value contains defaults-value which are set already.
-    E.g call: bash collector.py --host=localhost --port=8086    
-
-    --host      <name>                  : Specifies here how to access the influxdb-server. E.g the <IP-address> or maybe <localhost> 
-    --port      <number>                : Portnumber where to call the influxdb-server on.
-    --dbname    <name>                  : Name of the DB where to collect data from.
-    --exportTyp <xlxs|sep-xlxs|cvs>     : xlxs      - for excel-export. One measurement to one sheet on the same workbook
-                                          sep-xlxs  - for excel-export. Each measurment goes into a differente workbook
-                                          cvs       - for cvs-export. Each measurment goes into a differente file.
-    --exportDir <pathToDir>             : Path to directory where to export all files. If Dir not exists then a new dir will be created.
-    --leftTimeBorder                    : Specifie the lowest/latest timestamp you are intressted in.      Default 00000000
-    --rightTimeBorder                   : Specifie the highest/recently timestamp you are intressted in.   Default 99999999
-            """)
-    sys.exit(2)
-def handleInput(argv):
-   try:
-      opts, args = getopt.getopt(argv,"h",["help=","host=" ,"port=","dbname=","exportTyp=","exportDir=","leftTimeBorder=","rightTimeBorder="])
-   except getopt.GetoptError:
-        print("gtop error")
-        printHelpAndExit()
-        sys.exit(2)
-   for opt, arg in opts:
-        if opt == '-h':
-            print("-h")
-            printHelpAndExit()
-        elif opt in ("--help"):
-            printHelpAndExit()
-        elif opt in ("--host"):
-            print("deck")
-            input_host = arg
-        elif opt in ("--port"):
-            print("deck")
-            input_port = arg
-        elif opt in ("--dbname"):
-            input_searchingDB = arg
-        elif opt in ("--exportTyp"):
-            input_exportTyp = arg
-        elif opt in ("--exportDir"):
-            input_exportDir = arg
-        elif opt in ("--leftTimeBorder"):
-            input_leftTimeBorder = arg
-        elif opt in ("--rightTimeBorder"):
-            input_rightTimeBorder = arg
+    print("Export successfully. See --$ {} $--".format(exportPath))
 
 
-
-
-def queryEverythingFromMeasure(client, meas):
-    query='SELECT * FROM "{}"'.format(meas)
-    qResult = client.query(query = query)
-    print(qResult)
-
-def debugPrint(message):
-    if(DEBUG == True):
-        print('DEBUG: ' + message)
+def querySelAllFromMeasureResAsDataFrame(client, meas):
+    query   = 'SELECT * FROM "{}"'.format(meas)
+    points  = client.query(query, chunked=True, chunk_size=10000).get_points()
+    return pd.DataFrame(points)
 
 def abortExecBecauseDBNotFound(dbname):
     print('Execution will stop because the required DB < {} > was not found.'.format(dbname))
     print('Stoping now.')
-    sys.exit(1)
+    exit(1)
 
-def existsDB(influxdbClient, DBName):
-    found = False
+def isDBavailable(influxdbClient, DBName):
+    available = False
     for dbs in influxdbClient.get_list_database():
         if dbs['name'] == DBName:
-            found = True
+            available = True
             break
-    return found
+    return available
+
+def initParser():
+    # Returns the all handled arguments which were given during the programm start.
+    parser  =   argparse.ArgumentParser()
+    parser.description="""
+    The purpose of the script is it to call a given InfluxDB-instance in order to download all performance data from a specific
+    database and export each measurement. (d) means that this is the default value. 
+    E.g call: bash collector.py --host=localhost --port=8086"""
     
-main(sys.argv[1:])
+    parser.add_argument('--host',           default='localhost', metavar="<hostname>",
+                                            help='Specifies here how to access the influxdb-server. localhost(d)')
+    parser.add_argument('--port',           default=8086, metavar="<port>",
+                                            help='Port of the influxdb-server where to connect to. (d)8086')
+    parser.add_argument('--dbname',         default='k8s', metavar="<name>",
+                                            help='Name of the DB where to collect data from.')
+    parser.add_argument('--exportTyp',      default='xlxs', metavar="<xlxs|sep-xlxs|cvs>",
+                                            help="""
+                                            [xlxs]        - for excel-export. One measurement to diffrente sheet but same workbook.
+                                            [sep-xlxs]    - for excel-export. Each measurment will be saved in a diffrente workbook
+                                            [cvs]         - for cvs-export. Each measurment will be saved in different file.""")
+    parser.add_argument('--exportDir',      default='/results', metavar="<path>",
+                                            help='Path to directory where to export all files. If Dir not exists then a new dir will be created.')
+    parser.add_argument('--exportFile',     default='exp_00', metavar="<name>",
+                                            help='The name of the outputfile if applicable.')
+    parser.add_argument('--lTimeBorder',    default=0000000000000000000, metavar="<number>",
+                                            help='Specifie the lowest/latest timestamp you are intressted in.      Default 00000000')
+    parser.add_argument('--rTimeBorder',    default=9999999999999999999	, metavar="<number>",  
+                                            help='Specifie the highest/recently timestamp you are intressted in.   Default 99999999')
+    #0000000000000000000
+    #9999999999999999999
+
+    #1551974700000000000
+    #2100000000000000000
+    return parser.parse_args() 
+
+main()
